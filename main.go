@@ -40,6 +40,7 @@ func main() {
 		resultChBrasilAPI <- result
 	}()
 
+	fmt.Println("==> Resultado do método 1")
 	select {
 	case resultViaCEP := <-resultChViaCEP:
 		fmt.Println(resultViaCEP)
@@ -48,16 +49,18 @@ func main() {
 	case <-time.After(1 * time.Second):
 		fmt.Println("Erro de timeout")
 	}
+	fmt.Println("##########################################")
 
 	// usando o método 2
 	resultChViaCEP2 := make(chan string)
-	defer close(resultChViaCEP)
+	defer close(resultChViaCEP2)
 	resultChBrasilAPI2 := make(chan string)
-	defer close(resultChBrasilAPI)
+	defer close(resultChBrasilAPI2)
 
 	go MakeRequest2("viacep", "https://viacep.com.br/ws/"+cep+"/json/", resultChViaCEP2)
 	go MakeRequest2("brasilapi", "https://brasilapi.com.br/api/cep/v1/"+cep, resultChBrasilAPI2)
 
+	fmt.Println("==> Resultado do método 2")
 	select {
 	case resultViaCEP := <-resultChViaCEP2:
 		fmt.Println(resultViaCEP)
@@ -66,6 +69,7 @@ func main() {
 	case <-time.After(1 * time.Second):
 		fmt.Println("Erro de timeout")
 	}
+	fmt.Println("##########################################")
 }
 
 func MakeRequest(apiName string, url string) (string, error) {

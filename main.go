@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -16,55 +16,60 @@ func main() {
 	}
 	cep := os.Args[1]
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	// Create a channel to receive the results
+	// Usando o método 1
 	resultChViaCEP := make(chan string)
 	defer close(resultChViaCEP)
 	resultChBrasilAPI := make(chan string)
 	defer close(resultChBrasilAPI)
 
 	go func() {
-		result, err := MakeRequest(ctx, "https://viacep.com.br/ws/"+cep+"/json/")
+		result, err := MakeRequest("viacep", "https://viacep.com.br/ws/"+cep+"/json/")
 		if err != nil {
-			fmt.Println("Erro ao buscar na viacep:", err)
+			log.Println("Erro ao buscar na viacep:", err)
 			return
 		}
 		resultChViaCEP <- result
 	}()
 
 	go func() {
-		result, err := MakeRequest(ctx, "https://brasilapi.com.br/api/cep/v1/"+cep)
+		result, err := MakeRequest("brasilapi", "https://brasilapi.com.br/api/cep/v1/"+cep)
 		if err != nil {
-			fmt.Println("Erro ao buscar na brasilapi:", err)
+			log.Println("Erro ao buscar na brasilapi:", err)
 			return
 		}
 		resultChBrasilAPI <- result
 	}()
 
-	var result string
 	select {
 	case resultViaCEP := <-resultChViaCEP:
-		result = resultViaCEP
+		fmt.Println(resultViaCEP)
 	case resultBrasilAPI := <-resultChBrasilAPI:
-		result = resultBrasilAPI
-	case <-ctx.Done():
-		result = "Erro ao buscar cep"
+		fmt.Println(resultBrasilAPI)
+	case <-time.After(1 * time.Second):
+		fmt.Println("Erro de timeout")
 	}
 
-	fmt.Println(result)
+	// usando o método 2
+	resultChViaCEP2 := make(chan string)
+	defer close(resultChViaCEP)
+	resultChBrasilAPI2 := make(chan string)
+	defer close(resultChBrasilAPI)
 
-	cancel()
+	go MakeRequest2("viacep", "https://viacep.com.br/ws/"+cep+"/json/", resultChViaCEP2)
+	go MakeRequest2("brasilapi", "https://brasilapi.com.br/api/cep/v1/"+cep, resultChBrasilAPI2)
+
+	select {
+	case resultViaCEP := <-resultChViaCEP2:
+		fmt.Println(resultViaCEP)
+	case resultBrasilAPI := <-resultChBrasilAPI2:
+		fmt.Println(resultBrasilAPI)
+	case <-time.After(1 * time.Second):
+		fmt.Println("Erro de timeout")
+	}
 }
 
-func MakeRequest(ctx context.Context, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
+func MakeRequest(apiName string, url string) (string, error) {
+	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -75,5 +80,18 @@ func MakeRequest(ctx context.Context, url string) (string, error) {
 		return "", err
 	}
 
-	return string(body), nil
+	return fmt.Sprintf("Resultado da %s: %s", apiName, string(body)), nil
+}
+
+func MakeRequest2(apiName string, url string, resultChannel chan<- string) {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	resultChannel <- fmt.Sprintf("Resultado da %s: %s", apiName, string(body))
 }

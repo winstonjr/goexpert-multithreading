@@ -23,8 +23,8 @@ func main() {
 	go MakeRequest2("brasilapi", "https://brasilapi.com.br/api/cep/v1/"+cep, resultCh)
 
 	select {
-	case resultViaCEP := <-resultCh:
-		fmt.Println(resultViaCEP)
+	case result := <-resultCh:
+		fmt.Println(result)
 	case <-time.After(1 * time.Second):
 		fmt.Println("Erro de timeout")
 	}

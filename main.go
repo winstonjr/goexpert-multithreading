@@ -16,19 +16,15 @@ func main() {
 	}
 	cep := os.Args[1]
 
-	resultChViaCEP2 := make(chan string)
-	defer close(resultChViaCEP2)
-	resultChBrasilAPI2 := make(chan string)
-	defer close(resultChBrasilAPI2)
+	resultCh := make(chan string)
+	defer close(resultCh)
 
-	go MakeRequest2("viacep", "https://viacep.com.br/ws/"+cep+"/json/", resultChViaCEP2)
-	go MakeRequest2("brasilapi", "https://brasilapi.com.br/api/cep/v1/"+cep, resultChBrasilAPI2)
+	go MakeRequest2("viacep", "https://viacep.com.br/ws/"+cep+"/json/", resultCh)
+	go MakeRequest2("brasilapi", "https://brasilapi.com.br/api/cep/v1/"+cep, resultCh)
 
 	select {
-	case resultViaCEP := <-resultChViaCEP2:
+	case resultViaCEP := <-resultCh:
 		fmt.Println(resultViaCEP)
-	case resultBrasilAPI := <-resultChBrasilAPI2:
-		fmt.Println(resultBrasilAPI)
 	case <-time.After(1 * time.Second):
 		fmt.Println("Erro de timeout")
 	}
